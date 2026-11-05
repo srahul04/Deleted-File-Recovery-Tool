@@ -1,0 +1,10 @@
+This is the main project file
+in this added features
+1. added sorting feature in the tool(claud-agent).py code
+2. added search bar and rectified the permanently deleted count after scanning.
+3. bi_recovery(gpt).py, this code is fetched from chatgpt with and it can recover recycle bin data.
+
+
+
+tool(claude-agent).py - this gives the output data which is in the recycle bin only
+tool(claude-agent)copy.py - this gi
