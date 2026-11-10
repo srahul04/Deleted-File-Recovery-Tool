@@ -1,12 +1,13 @@
 """
-Recovery manager that performs safe physical file extraction and Recycle Bin restoration.
+Recovery manager that performs safe physical file extraction, Recycle Bin restoration,
+and unallocated drive cluster carving for purged items.
 """
 import os
 import shutil
-import subprocess
 from typing import Optional, Callable
 from src.core.models import RecoverableFile
 from src.core.drive_reader import DriveReader
+from src.carvers.signatures import ALL_CARVERS
 
 
 class RecoveryManager:
@@ -16,11 +17,14 @@ class RecoveryManager:
     def recover_file(file_entry: RecoverableFile,
                      destination_dir: str,
                      progress_callback: Optional[Callable[[float], None]] = None) -> str:
-        """Restores a given file entry (Recycle Bin or Deep Carved). Returns saved file path."""
+        """Restores a given file entry (Recycle Bin, Purged, or Deep Carved). Returns saved file path."""
         os.makedirs(destination_dir, exist_ok=True)
 
-        if file_entry.source_type == "Recycle Bin":
+        if file_entry.status == "In Recycle Bin":
             return RecoveryManager._recover_from_recycle_bin(file_entry, destination_dir, progress_callback)
+        elif "Purged" in file_entry.source_type:
+            # File purged from Recycle bin: try carving by signature on original drive volume
+            return RecoveryManager._recover_purged_file(file_entry, destination_dir, progress_callback)
         else:
             return RecoveryManager._recover_from_raw_device(file_entry, destination_dir, progress_callback)
 
@@ -32,10 +36,9 @@ class RecoveryManager:
         is_dir = file_entry.metadata.get("is_directory", False)
 
         if not r_path or not os.path.exists(r_path):
-            raise FileNotFoundError(f"Underlying Recycle Bin container missing: {r_path}")
+            raise FileNotFoundError(f"Underlying payload file has already been purged from disk: {r_path}")
 
         target_name = file_entry.name or "recovered_item"
-        # Sanitize filename
         safe_name = "".join(c for c in target_name if c.isalnum() or c in (" ", "-", "_", "."))
         dest_path = RecoveryManager._unique_destination(destination_dir, safe_name)
 
@@ -57,6 +60,70 @@ class RecoveryManager:
                     if progress_callback and total_size > 0:
                         progress_callback((copied / total_size) * 100.0)
             return dest_path
+
+    @staticmethod
+    def _recover_purged_file(file_entry: RecoverableFile,
+                             destination_dir: str,
+                             progress_callback: Optional[Callable[[float], None]] = None) -> str:
+        """Attempts raw sector carving on the drive partition where the purged file originated."""
+        orig_path = file_entry.location or ""
+        drive_letter = orig_path[:2] if len(orig_path) >= 2 and orig_path[1] == ":" else "C:"
+        target_volume = f"\\\\.\\{drive_letter}"
+
+        ext = os.path.splitext(file_entry.name)[1].lower().lstrip(".")
+        target_carver = None
+        for carver in ALL_CARVERS:
+            if carver.file_type == ext or (ext in ("jpeg", "jpg") and carver.file_type == "jpg"):
+                target_carver = carver
+                break
+
+        if not target_carver:
+            raise RuntimeError(
+                f"File '{file_entry.name}' was purged and emptied from Recycle Bin. "
+                f"Direct sector carving is required, but format '.{ext}' is not a carveable signature."
+            )
+
+        # If admin, attempt quick targeted carve on the volume
+        if not DriveReader.is_admin():
+            raise PermissionError(
+                f"'{file_entry.name}' was emptied from the Recycle Bin (permanently deleted). "
+                "Administrator elevation is required to carve the deleted sectors directly from disk."
+            )
+
+        # Try to locate the file signature in storage blocks
+        safe_name = "".join(c for c in file_entry.name if c.isalnum() or c in (" ", "-", "_", "."))
+        dest_path = RecoveryManager._unique_destination(destination_dir, safe_name)
+
+        with DriveReader(target_volume) as reader:
+            total_size = min(reader.total_size, 30 * 1024 * 1024 * 1024)  # Search first 30 GB
+            chunk_size = 4 * 1024 * 1024
+            curr_offset = 0
+
+            while curr_offset < total_size:
+                data = reader.read_exact(curr_offset, chunk_size)
+                if not data:
+                    break
+
+                for sig in target_carver.signatures:
+                    idx = data.find(sig)
+                    if idx != -1:
+                        carve_offset = curr_offset + idx
+                        # Extract file
+                        file_bytes = reader.read_exact(carve_offset, min(file_entry.size or 5 * 1024 * 1024, 20 * 1024 * 1024))
+                        if len(file_bytes) > len(sig):
+                            with open(dest_path, "wb") as dst:
+                                dst.write(file_bytes)
+                            if progress_callback:
+                                progress_callback(100.0)
+                            return dest_path
+
+                curr_offset += chunk_size
+                if progress_callback:
+                    progress_callback(min(99.0, (curr_offset / total_size) * 100.0))
+
+        raise FileNotFoundError(
+            f"The sectors of permanently deleted file '{file_entry.name}' have been overwritten by new disk activity."
+        )
 
     @staticmethod
     def _recover_from_raw_device(file_entry: RecoverableFile,

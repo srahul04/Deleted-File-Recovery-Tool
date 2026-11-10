@@ -184,7 +184,7 @@ class RecoveryToolUI:
 
     def _scan_worker(self, target_name: str, target_id: Optional[str]):
         rb_count = 0
-        deep_count = 0
+        perm_count = 0
 
         try:
             # Phase 1: Logical Scan (Recycle Bin)
@@ -192,10 +192,13 @@ class RecoveryToolUI:
             rb_files = RecycleBinScanner.scan_all_drives()
             for f in rb_files:
                 self.all_files[f.file_id] = f
-                rb_count += 1
+                if f.status == "In Recycle Bin":
+                    rb_count += 1
+                else:
+                    perm_count += 1
                 self.root.after(0, self._append_file_row, f)
 
-            self.root.after(0, self._update_metrics, len(self.all_files), rb_count, deep_count, 0)
+            self.root.after(0, self._update_metrics, len(self.all_files), rb_count, perm_count, 0)
 
             # Phase 2: Physical / Volume Deep Sector Scan
             if target_id and not (self.active_carver and self.active_carver.is_cancelled):
@@ -209,11 +212,11 @@ class RecoveryToolUI:
                         self.root.after(0, self._update_progress, pct, msg)
 
                     def on_file_found(file_entry: RecoverableFile):
-                        nonlocal deep_count
-                        deep_count += 1
+                        nonlocal perm_count
+                        perm_count += 1
                         self.all_files[file_entry.file_id] = file_entry
                         self.root.after(0, self._append_file_row, file_entry)
-                        self.root.after(0, self._update_metrics, len(self.all_files), rb_count, deep_count, 0)
+                        self.root.after(0, self._update_metrics, len(self.all_files), rb_count, perm_count, 0)
 
                     self.active_carver.scan(progress_callback=on_progress, file_found_callback=on_file_found)
 

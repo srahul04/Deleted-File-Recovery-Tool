@@ -1,13 +1,15 @@
 """
 Recycle Bin parser for modern Windows ($I / $R file structure).
 Supports both pre-Windows 10 (Format 1) and Windows 10/11 (Format 2).
+Accurately categorizes items:
+- "In Recycle Bin" when the corresponding $R payload file still exists.
+- "Permanently Deleted" when the $R payload file has been purged/emptied, but the $I metadata index remains.
 """
 import os
 import struct
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 import win32api
-import win32con
 
 from src.core.models import RecoverableFile
 
@@ -97,18 +99,23 @@ class RecycleBinScanner:
             actual_exists = os.path.exists(r_file_path)
             actual_size = os.path.getsize(r_file_path) if actual_exists else file_size
 
+            # If $R payload was emptied/deleted, it's Permanently Deleted (Purged from Recycle Bin)
+            status_str = "In Recycle Bin" if actual_exists else "Permanently Deleted"
+            source_str = "Recycle Bin" if actual_exists else "Recycle Bin (Purged)"
+
             return RecoverableFile(
                 file_id=f"rb_{os.path.basename(i_file_path)}",
                 name=file_name,
                 size=actual_size,
-                source_type="Recycle Bin",
-                status="In Recycle Bin",
+                source_type=source_str,
+                status=status_str,
                 timestamp=cls.filetime_to_datetime(filetime),
                 location=original_path,
                 metadata={
                     "i_path": i_file_path,
                     "r_path": r_file_path,
                     "original_path": original_path,
+                    "payload_exists": actual_exists,
                     "is_directory": os.path.isdir(r_file_path) if actual_exists else False
                 }
             )
