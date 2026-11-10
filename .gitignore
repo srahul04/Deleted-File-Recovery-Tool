@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# PyInstaller build files (keep dist/ with release exe)
+build/
+*.spec
+
 # Environments
 .env
 .venv
@@ -13,4 +17,3 @@ ENV/
 # IDE files
 .vscode/
 .idea/
-

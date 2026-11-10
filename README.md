@@ -11,6 +11,16 @@ An offline digital forensics desktop tool designed to locate and restore deleted
 
 ---
 
+## ⚡ Direct Download (No Setup Needed)
+
+> **Ready-to-Use Windows Executable**:  
+> You do **not** need Python or dependencies installed to run this application!
+>
+> 📥 **Executable Path:** [`dist/ForensicRecoveryTool.exe`](dist/ForensicRecoveryTool.exe)  
+> *Double-click to run (automatically requests Administrator privileges for sector-level carving).*
+
+---
+
 ## ⚡ Key Highlights
 
 - **100% Offline & Private**: Zero external APIs, zero telemetry, zero cloud calls. Everything runs locally on your PC.
@@ -27,43 +37,38 @@ An offline digital forensics desktop tool designed to locate and restore deleted
 
 ---
 
-## 🚀 Quick Start Guide
-
-### 1. Requirements
-* Windows 10 / 11
-* Python 3.8 or newer
-* **Administrator Privileges** (required only for raw sector carving)
-
-### 2. Install Dependencies
-Open PowerShell or Command Prompt in the project folder and run:
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Launch the Application
-Right-click your terminal and select **"Run as Administrator"**, then run:
-```bash
-python main.py
-```
-
----
-
 ## 📖 How to Use (Step-by-Step)
 
 ```
 [ 1. Select Target ] ➔ [ 2. Click Start Scan ] ➔ [ 3. Select Files ] ➔ [ 4. Recover ]
 ```
 
-1. **Select Target Drive**:
+1. **Launch the App**:
+   - Double-click `ForensicRecoveryTool.exe` in the `dist/` folder (or run `python main.py`).
+2. **Select Target Drive**:
    - Choose your drive partition from the dropdown menu (e.g., `Logical Volume C:`, `D:`, or `Recycle Bin Only`).
-2. **Start Scanning**:
+3. **Start Scanning**:
    - Click **▶ Start Scan**. The progress bar and live counters will track recovered items in real time.
-3. **Filter Your Files**:
+4. **Filter Your Files**:
    - Type in the **Filter Results** search box to quickly locate documents, photos, or specific file extensions.
    - Click table headers to sort by **Name**, **Size**, or **Date**.
-4. **Restore**:
+5. **Restore**:
    - Highlight the files you want to save.
    - Click **💾 Recover Selected** and pick a destination folder (select a different drive or external USB to prevent overwriting deleted sectors).
+
+---
+
+## 🛠️ Run from Source (Optional)
+
+If you prefer running from Python source instead of the standalone `.exe`:
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Run app (as Administrator)
+python main.py
+```
 
 ---
 
@@ -72,15 +77,17 @@ python main.py
 ```
 Deleted-File-Recovery-Tool/
 │
+├── dist/
+│   └── ForensicRecoveryTool.exe  # Standalone Windows executable
 ├── src/
-│   ├── core/              # Low-level sector reader, volume geometry & Recycle Bin logic
-│   ├── carvers/           # Format-specific signature carvers (JPEG, PNG, PDF, ZIP, EXE)
-│   └── ui/                # Tkinter desktop interface
+│   ├── core/                     # Low-level sector reader, volume geometry & Recycle Bin logic
+│   ├── carvers/                  # Format-specific signature carvers (JPEG, PNG, PDF, ZIP, EXE)
+│   └── ui/                       # Tkinter desktop interface
 │
-├── tests/                 # Automated unit tests
-├── main.py                # Application entry point
-├── requirements.txt       # Minimal dependencies (psutil, pywin32)
-└── README.md              # Project documentation
+├── tests/                        # Automated unit tests
+├── main.py                       # Application entry point
+├── requirements.txt              # Minimal dependencies (psutil, pywin32)
+└── README.md                     # Project documentation
 ```
 
 ---
